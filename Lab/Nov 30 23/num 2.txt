@@ -1,0 +1,192 @@
+section .data
+    head db "CIT-U",10,"Automated Teller Machine",10,"Programmer: Jake Bajo", 10
+    HeadLen equ $ - head
+    menu db 10,"MAIN MENU",10,"1. Balance Inquiry",10,"2. Deposit",10,"3. Withdrawal",10,"4. Exit",10
+    menuLen equ $ - menu
+    msgChoice db "Please enter choice: "
+    msgLen equ $ - msgChoice
+    choice1 db 10, "Balance Inquiry",10,"Your current balance: P"
+    cLen1 equ $ - choice1
+    choice2 db 10,"Withdrawal",10,"Enter withdrawal amount: P"
+    cLen2 equ $ - choice2
+    choice3 db 10,"Deposit",10,"Enter deposit amount: P"
+    cLen3 equ $ - choice3
+    choice4 db 10,"ERROR! Insufficient Balance!",10
+    cLen4 equ $ - choice4
+    choice5 db 10,"Exiting ATM",10,"Thank you!",10
+    cLen5 equ $ - choice5
+    choice6 db 10,"ERROR! Invalid choice!",10
+    cLen6 equ $ - choice6
+    
+section .bss
+    num1 resb 4
+    res resb 4
+    buffer1 resb 16
+    buffer2 resb 16
+    buffer3 resb 16
+    choice resb 1
+
+section .text
+    global _start
+_start:
+    mov dword [res], 0
+    
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, head
+    mov edx, HeadLen
+    int 80h
+again:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, menu
+    mov edx, menuLen
+    int 80h
+    
+    call _msgChoice
+    
+    mov eax, 3
+    mov ebx, 0
+    mov ecx, choice
+    mov edx, 2
+    int 80h
+    
+    lea esi, [choice]
+    movzx edx, byte [esi]
+    
+    cmp edx, 0x31
+    je total
+    
+    cmp edx, 0x32
+    je runAddition
+    
+    cmp edx, 0x33
+    je runSubtraction
+
+    cmp edx, 0x34
+    je _exit
+    
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, choice6
+    mov edx, cLen6
+    int 80h
+    jmp again
+    
+total:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, choice1
+    mov edx, cLen1
+    int 80h
+    call _writeRes
+    jmp again
+    
+runAddition:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, choice3
+    mov edx, cLen3
+    int 80h
+    call _readNum1
+    call _addNums
+    jmp again
+    
+runSubtraction:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, choice2
+    mov edx, cLen2
+    int 80h
+    
+    call _readNum1
+    
+    mov eax, [num1]
+    cmp eax, [res]
+    
+    jg error
+    
+    call _subNums
+    jmp again
+    
+error:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, choice4
+    mov edx, cLen4
+    int 80h
+    jmp again
+    
+_msgChoice:
+    mov eax, 4  
+    mov ebx, 1 
+    mov ecx, msgChoice
+    mov edx, msgLen 
+    int 80h 
+    ret
+
+_readNum1:
+    mov eax, 3
+    mov ebx, 0
+    lea ecx, [buffer1]
+    mov edx, 16
+    int 80h
+    xor eax, eax
+    lea esi, [buffer1]
+    convert1:
+        movzx edx, byte [esi]
+        cmp dl, 10
+        je done1
+        sub edx, '0'
+        imul eax, 10
+        add eax, edx
+        inc esi
+        jmp convert1
+    done1:
+        mov edi, num1
+        mov [edi], eax
+        ret
+_addNums:
+    mov eax, [num1]
+    mov ebx, 0
+    add eax, ebx
+    add [res], eax
+    ret
+_subNums:
+    mov eax, [num1]
+    mov ebx, 0
+    add eax, ebx
+    sub [res], eax
+    ret
+
+_writeRes:
+    mov eax, [res]
+    lea edi, [buffer3+15]
+    mov byte [edi], 10
+    convert3:
+        dec edi
+        xor edx, edx
+        mov ecx, 10
+        div ecx
+        add dl, '0'
+        mov [edi], dl
+        test eax, eax
+        jnz convert3
+    mov eax, 4
+    mov ebx, 1
+    lea ecx, [edi]
+    lea edx, [buffer3+16]
+    sub edx, ecx
+    int 80h
+    ret
+
+_exit:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, choice5
+    mov edx, cLen5
+    int 80h
+    mov eax, 1
+    mov ebx, 0
+    int 80h
+    ret
